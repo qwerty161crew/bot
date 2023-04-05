@@ -71,14 +71,14 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяем данные в response."""
-    # if response.get('homeworks') is None:
-    #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
-    if response.get('current_date') is None:
+        # if response.get('homeworks') is None:
+        #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
+    if response['current_date'] is None:
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
-    if type(response) != dict:
-        raise TypeError('Запрос получил неожиданный тип данных')
-    if type(response['homeworks']) != list:
+    # if type(response) != dict:
+    #     raise TypeError('Запрос получил неожиданный тип данных')
+    if type(response) != list:
         raise TypeError('API запрос передал неожиданный формат данных')
 
 
