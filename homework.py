@@ -71,8 +71,8 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяем данные в response."""
-    if response.get('homeworks') is None:
-        raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
+    # if response.get('homeworks') is None:
+    #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
     if response.get('current_date') is None:
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
@@ -86,11 +86,13 @@ def parse_status(homework):
     """Анализируем статус если изменился."""
     if homework is None and homework['homework_name'] is None:
         raise HomeworkIsNone('Статус домашней работы пуcт')
-    if HOMEWORK_VERDICTS[homework['status']] is not str:
-        raise TypeError('Функция не возвращает строку')
-    if homework['homework_name'] is not str:
-        raise TypeError('Функция не возвращает строку')
-    return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
+    # if HOMEWORK_VERDICTS[homework['status']] is not str:
+    #     raise TypeError('Функция не возвращает строку а что-то')
+    # if homework['homework_name'] is not str:
+    #     raise TypeError('Функция не возвращает строку')
+    if homework['homework'] not in HOMEWORK_VERDICTS[homework['status']]:
+        raise HomeworkIsNone('Такого статуса нету')
+    return str(HOMEWORK_VERDICTS[homework['status']]), str(homework['homework_name'])
 
 
 def main():
@@ -110,14 +112,14 @@ def main():
         return
 
     for homework in response['homeworks']:
-        message = parse_status(homework)
+        message = parse_status(str(homework))
 
     bot_tg = Bot(token=TELEGRAM_TOKEN)
 
     while True:
         try:
             send_message(bot_tg, message)
-            # time.sleep(RETRY_PERIOD)
+            time.sleep(20)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             send_message(bot_tg, message)
