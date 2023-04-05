@@ -9,17 +9,18 @@ from telegram import Bot
 
 
 from dotenv import load_dotenv
-from exceptions import TokenError, ResponseError
+from exceptions import TokenError, ResponseError, HomeworkIsNone, MessageError
 load_dotenv()
-logging.basicConfig(format=f'%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-telegram_token = os.getenv('TELEGRAM_TOKEN')
-practicum_tocen = os.getenv('PRACTICUM_TOKEN')
-chat_id = os.getenv('TELEGRAM_CHAT_ID')
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO)
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-RETRY_PERIOD = 10
+RETRY_PERIOD = 1
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {practicum_tocen}'}
+HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
 HOMEWORK_VERDICTS = {
@@ -30,37 +31,56 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    if telegram_token is None:
+    """Проверка наличия токенов."""
+    if TELEGRAM_TOKEN is None:
         raise TokenError('Отсутсвует токен телеграм API')
-    if practicum_tocen is None:
+    if PRACTICUM_TOKEN is None:
         raise TokenError('Отсутсвует токен API Practicum')
-    if chat_id is None:
+    if TELEGRAM_CHAT_ID is None:
         raise TokenError('Отсутсвует id чата')
 
 
 def send_message(bot, message):
-    bot.send_message(
-        chat_id=chat_id,
-        message=message
+    """Отправка сообщения в Телеграм."""
+    bot(
+        text=message
     )
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.DEBUG)
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.ERROR)
 
 
 def get_api_answer(timestamp):
+    """Получение данных с API YP."""
     payload = {'from_date': timestamp}
     response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
-    return response.json()
+    try:
+        if response.status_code == 200:
+            return response.json()
+    except requests.RequestException as error:
+        print(error)
+        return
 
 
 def check_response(response):
+    """Проверяем данные в response."""
     if response.get('homeworks') is None:
         raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
     if response.get('current_date') is None:
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
+    if type(response) != dict and type(response['homeworks']) != list:
+        raise TypeError('Запрос получил неожиданный тип данных')
 
 
 def parse_status(homework):
-    return HOMEWORK_VERDICTS[homework['status']]
+    """Анализируем статус если изменился."""
+    if homework is None and homework['homework_name'] is None:
+        raise HomeworkIsNone('Статус домашней работы пуcт')
+    return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
 
 
 def main():
@@ -82,13 +102,13 @@ def main():
     for homework in response['homeworks']:
         message = parse_status(homework)
 
-    bot = Bot(token=telegram_token)
+    bot_tg = Bot(token=TELEGRAM_TOKEN)
+    bot = bot_tg.send_message(chat_id=TELEGRAM_CHAT_ID)
 
     while True:
         try:
-            time.sleep(10)
             send_message(bot, message)
-
+            # time.sleep(RETRY_PERIOD)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
 
