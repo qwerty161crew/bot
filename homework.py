@@ -35,6 +35,9 @@ def check_tokens():
     if TELEGRAM_TOKEN is None:
         raise TokenError('Отсутсвует токен телеграм API')
     if PRACTICUM_TOKEN is None:
+        logging.basicConfig(
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            level=logging.CRITICAL)
         raise TokenError('Отсутсвует токен API Practicum')
     if TELEGRAM_CHAT_ID is None:
         raise TokenError('Отсутсвует id чата')
@@ -43,18 +46,19 @@ def check_tokens():
 def send_message(bot, message):
     """Отправка сообщения в Телеграм."""
     try:
-        bot.send_message(
+
+        if bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message
-        )
+        ):
+            logging.basicConfig(
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                level=logging.DEBUG)
+    except MessageError as error:
         logging.basicConfig(
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.DEBUG)
-    except MessageError as error:
+            level=logging.ERROR)
         raise ('Сообщение не отправлено', error)
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.ERROR)
 
 
 def get_api_answer(timestamp):
@@ -71,15 +75,21 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяем данные в response."""
-        # if response.get('homeworks') is None:
-        #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
+    # if response.get('homeworks') is None:
+    #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
+    # if response not in None:
+    #     return
     if response['current_date'] is None:
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
-    # if type(response) != dict:
-    #     raise TypeError('Запрос получил неожиданный тип данных')
-    if type(response) != list:
-        raise TypeError('API запрос передал неожиданный формат данных')
+    if not isinstance(response, dict):
+        raise TypeError('Запрос получил неожиданный тип данных')
+    # if response['homeworks'] is None:
+    #     raise HomeworkIsNone('Поле "homeworks" пустое')
+    if not isinstance(response['homeworks'], list):
+        raise TypeError('API запрос ожидает списка')
+    if 'homeworks' not in response.keys():
+        raise HomeworkIsNone('homeworks is not list')
 
 
 def parse_status(homework):
@@ -90,7 +100,7 @@ def parse_status(homework):
     #     raise TypeError('Функция не возвращает строку а что-то')
     # if homework['homework_name'] is not str:
     #     raise TypeError('Функция не возвращает строку')
-    if homework['homework'] not in HOMEWORK_VERDICTS[homework['status']]:
+    if dict(homework['status']) is not HOMEWORK_VERDICTS[homework['status']]:
         raise HomeworkIsNone('Такого статуса нету')
     return str(HOMEWORK_VERDICTS[homework['status']]), str(homework['homework_name'])
 
@@ -99,6 +109,9 @@ def main():
     """Основная логика работы бота."""
     try:
         check_tokens()
+        logging.basicConfig(
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            level=logging.CRITICAL)
     except TokenError as exc:
         print(exc)
         return
