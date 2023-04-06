@@ -67,7 +67,7 @@ def get_api_answer(timestamp):
             raise OSError('Статус запроса отличный от 200')
         return response.json()
     except requests.RequestException as error:
-        print(error)
+        raise RuntimeError(f'API сервиса ЯП недоступен: {error}')
 
 
 def check_response(response):
@@ -100,20 +100,14 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    try:
-        check_tokens()
-    except TokenError as exc:
-        print(exc)
+    if not check_tokens():
         return
-
     timestamp = int(time.time())
     response = get_api_answer(timestamp)
-    try:
-        check_response(response)
-    except ResponseError as exc:
-        print(exc)
-        return
-    message = parse_status(response['homeworks'])
+    if check_response(response):
+        if len(response['homeworks']) != 0:
+            message = parse_status(response['homeworks'][0])
+
     bot = Bot(token=TELEGRAM_TOKEN)
     while True:
         try:
