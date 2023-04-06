@@ -103,10 +103,11 @@ def parse_status(homework):
     #     raise TypeError('Функция не возвращает строку')
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise HomeworkIsNone('Такого статуса нету')
-    if not isinstance(HOMEWORK_VERDICTS[homework['status']], str) and not isinstance(homework['homework_name'], str):
-        raise TypeError('Функция должна возвращать строку')
-    return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
-
+    try:
+        if isinstance(HOMEWORK_VERDICTS[homework['status']], str) and isinstance(homework['homework_name'], str):
+            return f'Изменился статус проверки работы "{homework["homework_name"]}" {HOMEWORK_VERDICTS[homework["status"]]}'
+    except TypeError:
+        return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
 
 def main():
     """Основная логика работы бота."""
@@ -126,8 +127,7 @@ def main():
 
     while True:
         try:
-            for homework in response['homeworks']:
-                message = parse_status(homework)
+            message = parse_status(response['homeworks'])
             bot = Bot(token=TELEGRAM_TOKEN)
             send_message(bot, message)
             # time.sleep(5)
