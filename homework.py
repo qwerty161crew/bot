@@ -92,15 +92,9 @@ def check_response(response):
 def parse_status(homework):
     """Анализируем статус если изменился."""
     if homework is None:
-        raise HomeworkIsNone('Статус домашней работы пуcт')
-    if homework['homework_name'] is None:
-        raise HomeworkIsNone('Статус домашней работы пуcт')
-    # if homework['homewors'] is None:
-    #     raise HomeworkIsNone('Статус домашней работы пуcт')
-    # if HOMEWORK_VERDICTS[homework['status']] is not str:
-    #     raise TypeError('Функция не возвращает строку а что-то')
-    # if homework['homework_name'] is not str:
-    #     raise TypeError('Функция не возвращает строку')
+        raise KeyError('Статус домашней работы пуcт')
+    if 'homework_name' not in homework:
+        raise KeyError('Отсутствует ключ homework_name в ответе API')
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise TypeError('Такого статуса нету')
     try:
