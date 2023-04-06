@@ -6,7 +6,7 @@ import requests
 import http
 import telegram
 
-from telegram import Bot
+
 
 
 from dotenv import load_dotenv
@@ -61,6 +61,7 @@ def send_message(bot, message):
 def get_api_answer(timestamp):
     """Получение данных с API YP."""
     payload = {'from_date': timestamp}
+
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
         if response.status_code != http.HTTPStatus.OK:
@@ -94,6 +95,7 @@ def parse_status(homework):
         raise KeyError('Отсутствует ключ status в ответе API')
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise ValueError('В ответе API недокументированный статус работы')
+
     verdict = HOMEWORK_VERDICTS[homework['status']]
     return f'Изменился статус проверки работы "{homework_name}"\n{verdict}'
 
@@ -102,17 +104,21 @@ def main():
     """Основная логика работы бота."""
     if not check_tokens():
         return
+
+    bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     response = get_api_answer(timestamp)
+
     if check_response(response):
         if len(response['homeworks']) != 0:
             message = parse_status(response['homeworks'][0])
 
-    bot = Bot(token=TELEGRAM_TOKEN)
     while True:
+
         try:
             send_message(bot, message)
             time.sleep(5)
+
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
