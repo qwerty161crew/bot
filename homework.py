@@ -81,12 +81,12 @@ def check_response(response):
             'В ответе от сервера отсутсвует поле: current_date')
     if not isinstance(response, dict):
         raise TypeError('Запрос получил неожиданный тип данных')
-    if response['homeworks'] is None:
-        raise HomeworkIsNone('Поле "homeworks" пустое')
+    if 'homeworks' not in response.keys():
+        raise KeyError('Поле "homeworks" пустое')
     if not isinstance(response['homeworks'], list):
         raise TypeError('API запрос ожидает списка')
     if 'homeworks' not in response.keys():
-        raise HomeworkIsNone('homeworks is not list')
+        raise KeyError('homeworks is not list')
 
 
 def parse_status(homework):
@@ -108,6 +108,7 @@ def parse_status(homework):
             return f'Изменился статус проверки работы "{homework["homework_name"]}" {HOMEWORK_VERDICTS[homework["status"]]}'
     except TypeError:
         return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
+
 
 def main():
     """Основная логика работы бота."""
