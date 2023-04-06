@@ -13,7 +13,8 @@ from exceptions import TokenError, ResponseError, HomeworkIsNone, MessageError
 load_dotenv()
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO)
+    level=logging.INFO,
+    filename='py_log.log')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -47,18 +48,13 @@ def send_message(bot, message):
     """Отправка сообщения в Телеграм."""
     try:
 
-        if bot.send_message(
+        bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message
-        ):
-            logging.basicConfig(
-                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                level=logging.DEBUG)
+        )
+        logging.debug("Сообщение было отправлено")
     except MessageError as error:
-        logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.ERROR)
-        raise ('Сообщение не отправлено', error)
+        logging.critical("Критисеская ошибка:", error)
 
 
 def get_api_answer(timestamp):
@@ -79,13 +75,14 @@ def check_response(response):
     #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
     # if response not in None:
     #     return
+
     if response['current_date'] is None:
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
     if not isinstance(response, dict):
         raise TypeError('Запрос получил неожиданный тип данных')
-    # if response['homeworks'] is None:
-    #     raise HomeworkIsNone('Поле "homeworks" пустое')
+    if response['homeworks'] is None:
+        raise HomeworkIsNone('Поле "homeworks" пустое')
     if not isinstance(response['homeworks'], list):
         raise TypeError('API запрос ожидает списка')
     if 'homeworks' not in response.keys():
@@ -94,24 +91,27 @@ def check_response(response):
 
 def parse_status(homework):
     """Анализируем статус если изменился."""
-    if homework is None and homework['homework_name'] is None:
+    if homework is None:
         raise HomeworkIsNone('Статус домашней работы пуcт')
+    if homework['homework_name'] is None:
+        raise HomeworkIsNone('Статус домашней работы пуcт')
+    # if homework['homewors'] is None:
+    #     raise HomeworkIsNone('Статус домашней работы пуcт')
     # if HOMEWORK_VERDICTS[homework['status']] is not str:
     #     raise TypeError('Функция не возвращает строку а что-то')
     # if homework['homework_name'] is not str:
     #     raise TypeError('Функция не возвращает строку')
-    if dict(homework['status']) is not HOMEWORK_VERDICTS[homework['status']]:
+    if homework['status'] not in HOMEWORK_VERDICTS:
         raise HomeworkIsNone('Такого статуса нету')
-    return str(HOMEWORK_VERDICTS[homework['status']]), str(homework['homework_name'])
+    if not isinstance(HOMEWORK_VERDICTS[homework['status']], str) and not isinstance(homework['homework_name'], str):
+        raise TypeError('Функция должна возвращать строку')
+    return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
 
 
 def main():
     """Основная логика работы бота."""
     try:
         check_tokens()
-        logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.CRITICAL)
     except TokenError as exc:
         print(exc)
         return
@@ -124,18 +124,16 @@ def main():
         print(exc)
         return
 
-    for homework in response['homeworks']:
-        message = parse_status(str(homework))
-
-    bot_tg = Bot(token=TELEGRAM_TOKEN)
-
     while True:
         try:
-            send_message(bot_tg, message)
-            time.sleep(20)
+            for homework in response['homeworks']:
+                message = parse_status(homework)
+            bot = Bot(token=TELEGRAM_TOKEN)
+            send_message(bot, message)
+            # time.sleep(5)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
-            send_message(bot_tg, message)
+            send_message(bot, message)
 
 
 if __name__ == '__main__':
