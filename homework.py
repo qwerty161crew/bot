@@ -7,8 +7,6 @@ import http
 import telegram
 
 
-
-
 from dotenv import load_dotenv
 from exceptions import TokenError, ResponseError
 load_dotenv()
