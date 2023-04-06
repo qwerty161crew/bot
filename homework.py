@@ -4,12 +4,13 @@ import os
 import time
 import requests
 import http
+import telegram
 
 from telegram import Bot
 
 
 from dotenv import load_dotenv
-from exceptions import TokenError, ResponseError, HomeworkIsNone, MessageError
+from exceptions import TokenError, ResponseError
 load_dotenv()
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -52,8 +53,9 @@ def send_message(bot, message):
             text=message
         )
         logging.debug("Сообщение было отправлено")
-    except MessageError as error:
-        logging.error("Критическая ошибка:", error)
+    except telegram.error.TelegramError as error:
+        logging.error(error)
+        telegram.error.TelegramError(f'Ошибка при отправку сообщения: {error}')
 
 
 def get_api_answer(timestamp):
