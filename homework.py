@@ -86,18 +86,16 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Анализируем статус если изменился."""
-    if homework is None:
-        raise KeyError('Статус домашней работы пуcт')
+    """извлекает из информации статус о домашней работе."""
     if 'homework_name' not in homework:
-        raise KeyError('Отсутствует ключ homework_name в ответе API')
+        raise KeyError('Отсутствует ключ `homework_name` в ответе API')
+    homework_name = homework['homework_name']
+    if 'status' not in homework:
+        raise KeyError('Отсутствует ключ status в ответе API')
     if homework['status'] not in HOMEWORK_VERDICTS:
-        raise TypeError('Такого статуса нету')
-    try:
-        if isinstance(HOMEWORK_VERDICTS[homework['status']], str) and isinstance(homework['homework_name'], str):
-            return f'Изменился статус проверки работы "{homework["homework_name"]}" {HOMEWORK_VERDICTS[homework["status"]]}'
-    except TypeError:
-        return HOMEWORK_VERDICTS[homework['status']], homework['homework_name']
+        raise ValueError('В ответе API недокументированный статус работы')
+    verdict = HOMEWORK_VERDICTS[homework['status']]
+    return f'Изменился статус проверки работы "{homework_name}"\n{verdict}'
 
 
 def main():
@@ -115,11 +113,10 @@ def main():
     except ResponseError as exc:
         print(exc)
         return
-
+    message = parse_status(response['homeworks'])
+    bot = Bot(token=TELEGRAM_TOKEN)
     while True:
         try:
-            message = parse_status(response['homeworks'])
-            bot = Bot(token=TELEGRAM_TOKEN)
             send_message(bot, message)
             time.sleep(5)
         except Exception as error:
