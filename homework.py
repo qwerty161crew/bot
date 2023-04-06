@@ -33,28 +33,27 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка наличия токенов."""
-    if TELEGRAM_TOKEN is None:
-        raise TokenError('Отсутсвует токен телеграм API')
-    if PRACTICUM_TOKEN is None:
-        logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.CRITICAL)
-        raise TokenError('Отсутсвует токен API Practicum')
-    if TELEGRAM_CHAT_ID is None:
-        raise TokenError('Отсутсвует id чата')
+    try:
+        if TELEGRAM_TOKEN is None:
+            raise TokenError('Отсутсвует токен телеграм API')
+        if PRACTICUM_TOKEN is None:
+            raise TokenError('Отсутсвует токен API Practicum')
+        if TELEGRAM_CHAT_ID is None:
+            raise TokenError('Отсутсвует id чата')
+    except TokenError as error:
+        logging.critical("Отсутсвует обязательное переменное окружение", error)
 
 
 def send_message(bot, message):
     """Отправка сообщения в Телеграм."""
     try:
-
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message
         )
         logging.debug("Сообщение было отправлено")
     except MessageError as error:
-        logging.critical("Критисеская ошибка:", error)
+        logging.error("Критическая ошибка:", error)
 
 
 def get_api_answer(timestamp):
@@ -71,11 +70,6 @@ def get_api_answer(timestamp):
 
 def check_response(response):
     """Проверяем данные в response."""
-    # if response.get('homeworks') is None:
-    #     raise ResponseError('В ответе от сервера отсутсвует поле: homeworks')
-    # if response not in None:
-    #     return
-
     if response['current_date'] is None:
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
@@ -125,7 +119,7 @@ def main():
             message = parse_status(response['homeworks'])
             bot = Bot(token=TELEGRAM_TOKEN)
             send_message(bot, message)
-            # time.sleep(5)
+            time.sleep(5)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
