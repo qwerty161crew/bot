@@ -102,7 +102,7 @@ def parse_status(homework):
     # if homework['homework_name'] is not str:
     #     raise TypeError('Функция не возвращает строку')
     if homework['status'] not in HOMEWORK_VERDICTS:
-        raise HomeworkIsNone('Такого статуса нету')
+        raise TypeError('Такого статуса нету')
     try:
         if isinstance(HOMEWORK_VERDICTS[homework['status']], str) and isinstance(homework['homework_name'], str):
             return f'Изменился статус проверки работы "{homework["homework_name"]}" {HOMEWORK_VERDICTS[homework["status"]]}'
