@@ -56,7 +56,6 @@ def get_api_answer(timestamp):
     payload = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
-        print(response.json())
         if response.status_code != http.HTTPStatus.OK:
             raise OSError(
                 f'Статус запроса отличный от 200.'
@@ -102,7 +101,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if check_tokens() is None:
-        print()
+        return
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
@@ -110,10 +109,11 @@ def main():
 
     if check_response(response):
         if len(response['homeworks']) != 0:
-            message = parse_status(response['homeworks'][0])
+            raise ValueError('Возвращается пустой запрос')
 
     while True:
         try:
+            message = parse_status(response['homeworks'][0])
             send_message(bot, message)
             time.sleep(RETRY_PERIOD)
 
