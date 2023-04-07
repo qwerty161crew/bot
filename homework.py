@@ -21,6 +21,10 @@ MESSAGE = 'Изменился статус проверки работы '
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+API_ERROR = 'API сервиса ЯП недоступен: {error}. Статус код:{response},'
+'параметры броска: {HEADERS}, {ENDPOINT}'
+KEYERROR = 'Отсутствует ключ `homework_name` в ответе API'
+VALUEERROR = 'В ответе API недопустимый статус работы{homework}'
 
 
 HOMEWORK_VERDICTS = {
@@ -56,17 +60,16 @@ def get_api_answer(timestamp):
     payload = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
-        if response.status_code != http.HTTPStatus.OK:
-            raise OSError(
-                f'Статус запроса отличный от 200.'
-                f'Статус код:{response.status_code},'
-                f'параметры броска: {response.reason}')
-        return response.json()
     except requests.RequestException as error:
-        raise APIerror(f'API сервиса ЯП недоступен: {error}'
-                       f'Статус запроса отличный от 200.'
-                       f'Статус код:{response.status_code},'
-                       f'параметры броска: {response.reason}')
+        raise APIerror(API_ERROR.format(error=error, HEADERS=HEADERS,
+                                        ENDPOINT=ENDPOINT,
+                                        response=response.status_code))
+    if response.status_code != http.HTTPStatus.OK:
+        raise APIerror(
+            f'Статус запроса отличный от 200.'
+            f'Статус код:{response.status_code},'
+            f'параметры броска: {ENDPOINT}, {HEADERS}')
+    return response.json()
 
 
 def check_response(response):
@@ -78,11 +81,11 @@ def check_response(response):
         raise TypeError(
             'Запрос получил неожиданный тип данных:', type(response))
     if 'homeworks' not in response.keys():
-        raise KeyError('Поле "homeworks" пустое')
+        raise KeyError(KEYERROR)
     if not isinstance(response['homeworks'], list):
-        raise TypeError('API запрос ожидает списка')
-    if response['homeworks'] is None:
-        raise KeyError('Поле "homeworks" пустое')
+        raise TypeError(
+            'API запрос ожидает списка,'
+            f'а получает:{type(response["homeworks"])}')
 
 
 def parse_status(homework):
@@ -93,7 +96,7 @@ def parse_status(homework):
     if 'status' not in homework:
         raise KeyError('Отсутствует ключ status в ответе API')
     if homework['status'] not in HOMEWORK_VERDICTS:
-        raise ValueError('В ответе API недокументированный статус работы')
+        raise ValueError(VALUEERROR.format(homework=homework['status']))
 
     return (f'{MESSAGE}"{homework_name}"\n'
             f'{HOMEWORK_VERDICTS[homework["status"]]}')
@@ -102,17 +105,17 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if check_tokens() is None:
-        return
+        print()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
-    response = get_api_answer(timestamp)
-
-    if check_response(response):
-        if len(response['homeworks']) != 0:
-            raise ValueError('Возвращается пустой запрос')
 
     while True:
+        response = get_api_answer(timestamp)
+
+        if check_response(response):
+            if len(response['homeworks']) != 0:
+                raise ValueError('Возвращается пустой запрос')
         try:
             message = parse_status(response['homeworks'][0])
             send_message(bot, message)
