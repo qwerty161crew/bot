@@ -8,7 +8,7 @@ import telegram
 
 
 from dotenv import load_dotenv
-from exceptions import TokenError, ResponseError
+from exceptions import APIerror, ResponseError
 load_dotenv()
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -17,7 +17,7 @@ logging.basicConfig(
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-
+MESSAGE = 'Изменился статус проверки работы '
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
@@ -32,15 +32,10 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка наличия токенов."""
-    try:
-        if TELEGRAM_TOKEN is None:
-            raise TokenError('Отсутсвует токен телеграм API')
-        if PRACTICUM_TOKEN is None:
-            raise TokenError('Отсутсвует токен API Practicum')
-        if TELEGRAM_CHAT_ID is None:
-            raise TokenError('Отсутсвует id чата')
-    except TokenError as error:
-        logging.critical("Отсутсвует обязательное переменное окружение", error)
+    for token in TELEGRAM_TOKEN, PRACTICUM_TOKEN, TELEGRAM_CHAT_ID:
+        if token is None:
+            logging.critical("Отсутсвует обязательное переменное окружение")
+            raise KeyError(f'Отсутсвует токен:{token}')
 
 
 def send_message(bot, message):
@@ -50,23 +45,29 @@ def send_message(bot, message):
             chat_id=TELEGRAM_CHAT_ID,
             text=message
         )
-        logging.debug("Сообщение было отправлено")
+        logging.debug(f"'{message}' - сообщение было отправлено пользователю ")
     except telegram.error.TelegramError as error:
-        logging.error(error)
-        telegram.error.TelegramError(f'Ошибка при отправку сообщения: {error}')
+        logging.exception(
+            error, f'{message} - это сообщение не дошло до пользователя')
 
 
 def get_api_answer(timestamp):
     """Получение данных с API YP."""
     payload = {'from_date': timestamp}
-
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
+        print(response.json())
         if response.status_code != http.HTTPStatus.OK:
-            raise OSError('Статус запроса отличный от 200')
+            raise OSError(
+                f'Статус запроса отличный от 200.'
+                f'Статус код:{response.status_code},'
+                f'параметры броска: {response.reason}')
         return response.json()
     except requests.RequestException as error:
-        raise RuntimeError(f'API сервиса ЯП недоступен: {error}')
+        raise APIerror(f'API сервиса ЯП недоступен: {error}'
+                       f'Статус запроса отличный от 200.'
+                       f'Статус код:{response.status_code},'
+                       f'параметры броска: {response.reason}')
 
 
 def check_response(response):
@@ -75,13 +76,14 @@ def check_response(response):
         raise ResponseError(
             'В ответе от сервера отсутсвует поле: current_date')
     if not isinstance(response, dict):
-        raise TypeError('Запрос получил неожиданный тип данных')
+        raise TypeError(
+            'Запрос получил неожиданный тип данных:', type(response))
     if 'homeworks' not in response.keys():
         raise KeyError('Поле "homeworks" пустое')
     if not isinstance(response['homeworks'], list):
         raise TypeError('API запрос ожидает списка')
-    if 'homeworks' not in response.keys():
-        raise KeyError('homeworks is not list')
+    if response['homeworks'] is None:
+        raise KeyError('Поле "homeworks" пустое')
 
 
 def parse_status(homework):
@@ -94,17 +96,16 @@ def parse_status(homework):
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise ValueError('В ответе API недокументированный статус работы')
 
-    verdict = HOMEWORK_VERDICTS[homework['status']]
-    return f'Изменился статус проверки работы "{homework_name}"\n{verdict}'
+    return f'{MESSAGE}"{homework_name}"\n{HOMEWORK_VERDICTS[homework["status"]]}'
 
 
 def main():
     """Основная логика работы бота."""
-    if not check_tokens():
-        return
+    if check_tokens() is None:
+        print()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    timestamp = 0
     response = get_api_answer(timestamp)
 
     if check_response(response):
@@ -112,14 +113,14 @@ def main():
             message = parse_status(response['homeworks'][0])
 
     while True:
-
         try:
             send_message(bot, message)
-            time.sleep(5)
+            time.sleep(RETRY_PERIOD)
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             send_message(bot, message)
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
