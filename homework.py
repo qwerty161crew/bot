@@ -95,7 +95,8 @@ def parse_status(homework):
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise ValueError('В ответе API недокументированный статус работы')
 
-    return f'{MESSAGE}"{homework_name}"\n{HOMEWORK_VERDICTS[homework["status"]]}'
+    return (f'{MESSAGE}"{homework_name}"\n'
+            f'{HOMEWORK_VERDICTS[homework["status"]]}')
 
 
 def main():
