@@ -8,24 +8,33 @@ import telegram
 
 
 from dotenv import load_dotenv
-from exceptions import APIerror, ResponseError
+
 load_dotenv()
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
-    filename='py_log.log')
+    filename=__file__ + '.log')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-MESSAGE = 'Изменился статус проверки работы '
+
 RETRY_PERIOD = 600
+
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-API_ERROR = 'API сервиса ЯП недоступен: {error}. Статус код:{response},'
-'параметры броска: {HEADERS}, {ENDPOINT}'
+
+MESSAGE = 'Изменился статус проверки работы '
+API_ERROR = 'API сервиса ЯП недоступен: {error}. Параметры броска: {HEADERS}, {ENDPOINT}'
 KEYERROR = 'Отсутствует ключ `homework_name` в ответе API'
 VALUEERROR = 'В ответе API недопустимый статус работы{homework}'
+MESSAGEERROR = 'Сбой в работе программы: {error}'
+DEBAG_MESSAGE = "'{message}' - сообщение было отправлено пользователю"
+ERROR_MESSAGE = '{error}, {message} - это сообщение не дошло до пользователя'
+API_ERROR_MESSAGE = 'Статус запроса отличный от 200. Статус код:{response.status_code}, параметры броска: {ENDPOINT}, {HEADERS}'
+TYPEERROR = 'Запрос получил неожиданный тип данных: {response}'
 
+
+TOKEN_LIST = [[TELEGRAM_TOKEN, 'TELGRAM'], [TELEGRAM_CHAT_ID, 'TELEGRAM_CHAT'], [PRACTICUM_TOKEN, 'PRACTICUN']]
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -36,10 +45,10 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка наличия токенов."""
-    for token in TELEGRAM_TOKEN, PRACTICUM_TOKEN, TELEGRAM_CHAT_ID:
+    for token, name in TOKEN_LIST:
         if token is None:
-            logging.critical("Отсутсвует обязательное переменное окружение")
-            raise KeyError(f'Отсутсвует токен:{token}')
+            logging.critical("Отсутсвует обязательная переменная окружения")
+            raise ValueError(f'Отсутсвует токен: {token} {name}')
 
 
 def send_message(bot, message):
@@ -49,10 +58,9 @@ def send_message(bot, message):
             chat_id=TELEGRAM_CHAT_ID,
             text=message
         )
-        logging.debug(f"'{message}' - сообщение было отправлено пользователю ")
+        logging.debug(DEBAG_MESSAGE.format(message=message))
     except telegram.error.TelegramError as error:
-        logging.exception(
-            error, f'{message} - это сообщение не дошло до пользователя')
+        logging.exception(ERROR_MESSAGE.format(error=error, message=message))
 
 
 def get_api_answer(timestamp):
@@ -61,25 +69,18 @@ def get_api_answer(timestamp):
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
     except requests.RequestException as error:
-        raise APIerror(API_ERROR.format(error=error, HEADERS=HEADERS,
-                                        ENDPOINT=ENDPOINT,
-                                        response=response.status_code))
+        raise requests.ConnectionError(API_ERROR.format(error=error, HEADERS=HEADERS,
+                                                        ENDPOINT=ENDPOINT))
     if response.status_code != http.HTTPStatus.OK:
-        raise APIerror(
-            f'Статус запроса отличный от 200.'
-            f'Статус код:{response.status_code},'
-            f'параметры броска: {ENDPOINT}, {HEADERS}')
+        raise requests.ConnectionError(API_ERROR_MESSAGE.format(
+            response=response.status_code, HEADERS=HEADERS, ENDPOINT=ENDPOINT))
     return response.json()
 
 
 def check_response(response):
     """Проверяем данные в response."""
-    if response['current_date'] is None:
-        raise ResponseError(
-            'В ответе от сервера отсутсвует поле: current_date')
     if not isinstance(response, dict):
-        raise TypeError(
-            'Запрос получил неожиданный тип данных:', type(response))
+        raise TypeError(TYPEERROR.format(response=type(response)))
     if 'homeworks' not in response.keys():
         raise KeyError(KEYERROR)
     if not isinstance(response['homeworks'], list):
@@ -91,7 +92,7 @@ def check_response(response):
 def parse_status(homework):
     """извлекает из информации статус о домашней работе."""
     if 'homework_name' not in homework:
-        raise KeyError('Отсутствует ключ `homework_name` в ответе API')
+        raise KeyError(KEYERROR)
     homework_name = homework['homework_name']
     if 'status' not in homework:
         raise KeyError('Отсутствует ключ status в ответе API')
@@ -105,7 +106,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if check_tokens() is None:
-        print()
+        return
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
@@ -122,9 +123,8 @@ def main():
             time.sleep(RETRY_PERIOD)
 
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            send_message(bot, message)
-            time.sleep(RETRY_PERIOD)
+            message_error = MESSAGEERROR.format(error=error)
+            send_message(bot, message_error)
 
 
 if __name__ == '__main__':
