@@ -37,7 +37,7 @@ API_ERROR_MESSAGE = 'Статус запроса отличный от 200.'
 TYPEERROR = 'Запрос получил неожиданный тип данных: {response}'
 LOGGIN_CRITICAL_MESSAGE = "Отсутсвует обязательная переменная окружения"
 
-TOKEN_LIST = {TELEGRAM_TOKEN: 'TELGRAM',
+TOKEN_DICT = {TELEGRAM_TOKEN: 'TELGRAM',
               TELEGRAM_CHAT_ID: 'TELEGRAM_CHAT', PRACTICUM_TOKEN: 'PRACTICUN'}
 
 HOMEWORK_VERDICTS = {
@@ -49,8 +49,7 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка наличия токенов."""
-    for token, name in TOKEN_LIST.items():
-        print(token, name)
+    for token, name in TOKEN_DICT.items():
         if token is None:
             logging.critical("Отсутсвует обязательная переменная окружения")
             raise ValueError(f'Отсутсвует токен: {token} : {name}')
