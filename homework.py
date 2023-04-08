@@ -1,5 +1,6 @@
 import logging
 
+
 import os
 import time
 import requests
@@ -24,17 +25,20 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 MESSAGE = 'Изменился статус проверки работы '
-API_ERROR = 'API сервиса ЯП недоступен: {error}. Параметры броска: {HEADERS}, {ENDPOINT}'
+API_ERROR = ('API сервиса ЯП недоступен: {error}.'
+             'Параметры броска: {HEADERS}, {ENDPOINT}')
 KEYERROR = 'Отсутствует ключ `homework_name` в ответе API'
 VALUEERROR = 'В ответе API недопустимый статус работы{homework}'
 MESSAGEERROR = 'Сбой в работе программы: {error}'
 DEBAG_MESSAGE = "'{message}' - сообщение было отправлено пользователю"
 ERROR_MESSAGE = '{error}, {message} - это сообщение не дошло до пользователя'
-API_ERROR_MESSAGE = 'Статус запроса отличный от 200. Статус код:{response.status_code}, параметры броска: {ENDPOINT}, {HEADERS}'
+API_ERROR_MESSAGE = 'Статус запроса отличный от 200.'
+'Статус код:{response.status_code}, параметры броска: {ENDPOINT}, {HEADERS}'
 TYPEERROR = 'Запрос получил неожиданный тип данных: {response}'
+LOGGIN_CRITICAL_MESSAGE = "Отсутсвует обязательная переменная окружения"
 
-
-TOKEN_LIST = [[TELEGRAM_TOKEN, 'TELGRAM'], [TELEGRAM_CHAT_ID, 'TELEGRAM_CHAT'], [PRACTICUM_TOKEN, 'PRACTICUN']]
+TOKEN_LIST = {TELEGRAM_TOKEN: 'TELGRAM',
+              TELEGRAM_CHAT_ID: 'TELEGRAM_CHAT', PRACTICUM_TOKEN: 'PRACTICUN'}
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -45,10 +49,11 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка наличия токенов."""
-    for token, name in TOKEN_LIST:
+    for token, name in TOKEN_LIST.items():
+        print(token, name)
         if token is None:
             logging.critical("Отсутсвует обязательная переменная окружения")
-            raise ValueError(f'Отсутсвует токен: {token} {name}')
+            raise ValueError(f'Отсутсвует токен: {token} : {name}')
 
 
 def send_message(bot, message):
@@ -69,8 +74,9 @@ def get_api_answer(timestamp):
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
     except requests.RequestException as error:
-        raise requests.ConnectionError(API_ERROR.format(error=error, HEADERS=HEADERS,
-                                                        ENDPOINT=ENDPOINT))
+        raise OSError(API_ERROR.format(error=error,
+                                       HEADERS=HEADERS,
+                                       ENDPOINT=ENDPOINT))
     if response.status_code != http.HTTPStatus.OK:
         raise requests.ConnectionError(API_ERROR_MESSAGE.format(
             response=response.status_code, HEADERS=HEADERS, ENDPOINT=ENDPOINT))
@@ -106,8 +112,8 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     if check_tokens() is None:
+        logging.critical(LOGGIN_CRITICAL_MESSAGE.format())
         return
-
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
 
