@@ -13,5 +13,10 @@ class HomeworkIsNone(BaseException):
 class MessageError(BaseException):
     pass
 
+
 class APIerror(BaseException):
+    pass
+
+
+class StatusCodeError(BaseException):
     pass

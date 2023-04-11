@@ -86,16 +86,16 @@ def get_api_answer(timestamp):
                                                headers=HEADERS,
                                                params=payload,
                                                endpoint=ENDPOINT))
-    # if response['code'] in "UnknowError":
-    #     raise ResponseError(
-    #         RESPONSE_ERROR.format(response=response['code']))
-    # if response['code'] in "Not_authenticated":
-    #     raise ResponseError(RESPONSE_ERROR_TOKEN)
-    if response.status_code != http.HTTPStatus.OK:
-        raise StatusCodeError(API_ERROR_MESSAGE.format(
-            response=response.status_code, headers=HEADERS, endpoint=ENDPOINT,
-            params=payload))
-    return response.json()
+    if "UnknowError" in response.json():
+        raise ResponseError(
+            RESPONSE_ERROR.format(response=response['code']))
+    if "Not_authenticated" in response.json():
+        raise ResponseError(RESPONSE_ERROR_TOKEN)
+    if response.status_code == http.HTTPStatus.OK:
+        return response.json()
+    raise ConnectionError(API_ERROR_MESSAGE.format(
+        response=response.status_code, headers=HEADERS, endpoint=ENDPOINT,
+        params=payload))
 
 
 def check_response(response):
