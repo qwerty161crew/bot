@@ -29,13 +29,13 @@ https://practicum.yandex.ru/api/user_api/homework_statuses/
 Клонируем проект:
 
 ```bash
-git clone https://github.com/themasterid/homework_bot.git
+git clone https://github.com/qwerty161crew/homework_bot.git
 ```
 
 или
 
 ```bash
-git clone git@github.com:themasterid/homework_bot.git
+git clone git@github.com:qwerty161crew/homework_bot.git
 ```
 
 Переходим в папку с ботом.
