@@ -86,15 +86,15 @@ def get_api_answer(timestamp):
                                                headers=HEADERS,
                                                params=payload,
                                                endpoint=ENDPOINT))
+    # if response['code'] in "UnknowError":
+    #     raise ResponseError(
+    #         RESPONSE_ERROR.format(response=response['code']))
+    # if response['code'] in "Not_authenticated":
+    #     raise ResponseError(RESPONSE_ERROR_TOKEN)
     if response.status_code != http.HTTPStatus.OK:
         raise StatusCodeError(API_ERROR_MESSAGE.format(
             response=response.status_code, headers=HEADERS, endpoint=ENDPOINT,
             params=payload))
-    if response['code'] in "UnknowError":
-        raise ResponseError(
-            RESPONSE_ERROR.format(response=response['code']))
-    if response['code'] in "Not_authenticated":
-        raise ResponseError(RESPONSE_ERROR_TOKEN)
     return response.json()
 
 
@@ -106,12 +106,11 @@ def check_response(response):
         raise KeyError(KEY_ERROR)
     if not isinstance(response['homeworks'], list):
         raise TypeError(HOMEWOR_TYPE_ERROR.format(
-            response=type(response['homeworks'])))
+            response=type(response)))
 
 
 def parse_status(homework):
     """извлекает из информации статус о домашней работе."""
-    verdicts = HOMEWORK_VERDICTS[homework["status"]]
     if 'homework_name' not in homework:
         raise KeyError(KEY_ERROR_PARSE_STATUS)
     homework_name = homework['homework_name']
@@ -119,15 +118,17 @@ def parse_status(homework):
         raise KeyError(KEY_STATUS)
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise ValueError(VALUE_ERROR.format(status=homework['status']))
-
-    return PARSE_STATUS.format(message=MESSAGE,
-                               homework_name=homework_name,
-                               verdicts=verdicts)
+    verdict = HOMEWORK_VERDICTS[homework["status"]]
+    return (PARSE_STATUS.format(message=MESSAGE,
+                                homework_name=homework_name,
+                                verdicts=verdict)
+            )
 
 
 def main():
     """Основная логика работы бота."""
     check_tokens()
+
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
@@ -138,13 +139,14 @@ def main():
         except ResponseError as error:
             raise (f'Данные из запроса не прошли проверку. Ошибка: {error}')
         timestamp = response.get('current_date')
-        try:
-            message = parse_status(response['homeworks'])
-            send_message(bot, message)
+        for homework in response['homeworks']:
+            try:
+                message = parse_status(homework)
+                send_message(bot, message)
 
-        except Exception as error:
-            send_message(bot, MESSAGE_ERROR.format(error=error))
-            logging.error(ERROR_MESSAGE.format(error=error, message=message))
+            except Exception as error:
+                send_message(bot, MESSAGE_ERROR.format(error=error))
+                logging.critical(MESSAGE_ERROR.format(error=error))
         time.sleep(RETRY_PERIOD)
         logging.basicConfig(
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
