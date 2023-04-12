@@ -133,16 +133,16 @@ def main():
     check_tokens()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    timestamp = 0
     response = get_api_answer(timestamp)
     try:
-        if check_response(response):
-            raise ValueError('Возвращается пустой запрос')
-        while True:
 
+        while True:
+            if check_response(response):
+                raise ValueError('Возвращается пустой запрос')
             timestamp = response.get('current_date')
             try:
-                message = parse_status(homeworks=response['homeworks'])
+                message = parse_status(response['homeworks'][0])
                 send_message(bot, message)
 
             except Exception as error:
