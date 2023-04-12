@@ -46,6 +46,10 @@ RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
                         'Учетные данные не были предоставлены')
 LOGGIN_ERROR = 'Сбой в работе программы: {error}. Параметры броска: {response}, {timestamp}'
 
+TOKENS = [[TELEGRAM_TOKEN, 'TELEGRAM_TOKEN'],
+          [TELEGRAM_CHAT_ID, 'TELEGRAM_CHAT_ID'],
+          [PRACTICUM_TOKEN, 'PRACTICUM_TOKEN']]
+
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -54,16 +58,12 @@ HOMEWORK_VERDICTS = {
 }
 
 
-def check_tokens():
+def check_tokens(tokens):
     """Проверка наличия токенов."""
-    TOKENS = [[TELEGRAM_TOKEN, 'TELEGRAM_TOKEN'],
-              [TELEGRAM_CHAT_ID, 'TELEGRAM_CHAT_ID'],
-              [PRACTICUM_TOKEN, 'PRACTICUM_TOKEN']]
-    for token, name in TOKENS:
+    for token, name in tokens:
         if token is None:
             logging.critical(
                 f'Отсутсвует токен: {name}', LOGGIN_CRITICAL_MESSAGE)
-            # raise ValueError(LOGGIN_CRITICAL_MESSAGE)
 
 
 def send_message(bot, message):
@@ -130,14 +130,12 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    check_tokens()
-
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     response = get_api_answer(timestamp)
     try:
-
         while True:
+            check_tokens(tokens=TOKENS)
             if check_response(response):
                 raise ValueError('Возвращается пустой запрос')
             timestamp = response.get('current_date')
