@@ -19,7 +19,7 @@ RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
-MESSAGE = 'Изменился статус проверки работы '
+MESSAGE = 'Изменился статус проверки работы'
 API_ERROR = ('API сервиса ЯП недоступен: {error}.'
              'Параметры броска: {headers}, {params}, {endpoint}')
 KEY_ERROR = 'Отсутствует ключ `homework_name` в ответе API'
@@ -33,17 +33,19 @@ API_ERROR_MESSAGE = ('Статус запроса отличный от 200.'
 TYPE_ERROR = 'Запрос получил неожиданный тип данных: {response}'
 LOGGIN_CRITICAL_MESSAGE = "Отсутсвует обязательная переменная окружения"
 KEY_STATUS = 'Отсутствует ключ status в ответе API'
-PARSE_STATUS = '{message}"{homework_name}"\n{verdicts}'
+PARSE_STATUS = 'Изменился статус проверки работы "{homework_name}"\n{verdicts}'
 TOKEN_ERROR = 'Отсутствуют одна или несколько переменных окружения'
 HOMEWOR_TYPE_ERROR = ('API запрос ожидает списка,'
                       'а получает: {response}')
-KEY_ERROR_PARSE_STATUS = ('Отсутствует ключ `homework_name` в ответе API.'
-                          'Функция - parse_status')
+KEY_ERROR_HOMEWORK_NAME = ('Отсутствует ключ `homework_name` в ответе API.'
+                           'Функция - parse_status')
 RESPONSE_ERROR = ('Произошла ошибка при запросе к ЯП,'
                   'были переданы неожиданные данные для сервиса.'
                   'Response вернул {response}')
 RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
                         'Учетные данные не были предоставлены')
+LOGGIN_ERROR = 'Сбой в работе программы: {error}. Параметры броска: {response}, {timestamp}'
+
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -61,7 +63,7 @@ def check_tokens():
         if token is None:
             logging.critical(
                 f'Отсутсвует токен: {name}', LOGGIN_CRITICAL_MESSAGE)
-            raise ValueError(LOGGIN_CRITICAL_MESSAGE)
+            # raise ValueError(LOGGIN_CRITICAL_MESSAGE)
 
 
 def send_message(bot, message):
@@ -111,18 +113,19 @@ def check_response(response):
 
 def parse_status(homework):
     """извлекает из информации статус о домашней работе."""
+    print(type(homework))
     if 'homework_name' not in homework:
-        raise KeyError(KEY_ERROR_PARSE_STATUS)
+        raise KeyError(KEY_ERROR_HOMEWORK_NAME)
     homework_name = homework['homework_name']
     if 'status' not in homework:
         raise KeyError(KEY_STATUS)
     if homework['status'] not in HOMEWORK_VERDICTS:
         raise ValueError(VALUE_ERROR.format(status=homework['status']))
     verdict = HOMEWORK_VERDICTS[homework["status"]]
-    return (PARSE_STATUS.format(message=MESSAGE,
-                                homework_name=homework_name,
-                                verdicts=verdict)
-            )
+    return (PARSE_STATUS.format(
+        homework_name=homework_name,
+        verdicts=verdict)
+    )
 
 
 def main():
@@ -131,29 +134,31 @@ def main():
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
-    while True:
-        response = get_api_answer(timestamp)
-        try:
-            if check_response(response):
-                raise ValueError('Возвращается пустой запрос')
-        except ResponseError as error:
-            raise (f'Данные из запроса не прошли проверку. Ошибка: {error}')
-        timestamp = response.get('current_date')
-        for homework in response['homeworks']:
+    response = get_api_answer(timestamp)
+    try:
+        if check_response(response):
+            raise ValueError('Возвращается пустой запрос')
+        while True:
+
+            timestamp = response.get('current_date')
             try:
-                message = parse_status(homework)
+                message = parse_status(homeworks=response['homeworks'])
                 send_message(bot, message)
 
             except Exception as error:
                 send_message(bot, MESSAGE_ERROR.format(error=error))
-                logging.critical(MESSAGE_ERROR.format(error=error))
-        time.sleep(RETRY_PERIOD)
-        logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.INFO,
-            filename=__file__ + '.log',
-            handlers=['fileHandler', 'consoleHandler'])
+                logging.critical(LOGGIN_ERROR.format(
+                    error=error, response=response,
+                    timestamp=timestamp))
+            time.sleep(RETRY_PERIOD)
+    except ResponseError as error:
+        raise (f'Данные из запроса не прошли проверку. Ошибка: {error}')
 
 
 if __name__ == '__main__':
     main()
+    logging.basicConfig(
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO,
+        filename=__file__ + '.log',
+        handlers=['fileHandler', 'consoleHandler'])
