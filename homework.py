@@ -48,7 +48,6 @@ RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
 LOGGIN_ERROR = ('Сбой в работе программы: {error}. Параметры броска:'
                 '{response}, {timestamp}')
 
-
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
@@ -59,12 +58,13 @@ HOMEWORK_VERDICTS = {
 def check_tokens():
     """Проверка наличия токенов."""
     not_found_token_names = []
-    if TELEGRAM_TOKEN is None:
-        not_found_token_names.append('TELEGRAM_TOKEN')
-    if TELEGRAM_CHAT_ID is None:
-        not_found_token_names.append('TELEGRAM_CHAT_ID')
-    if PRACTICUM_TOKEN is None:
-        not_found_token_names.append('PRACTICUM_TOKEN')
+    for token_name, token in (
+        ('TELEGRAM_TOKEN', TELEGRAM_TOKEN),
+        ('TELEGRAM_CHAT_ID', TELEGRAM_CHAT_ID),
+        ('PRACTICUM_TOKEN', PRACTICUM_TOKEN),
+    ):
+        if token is None:
+            not_found_token_names.append(token_name)
     if len(not_found_token_names) > 0:
         logging.critical(
             f'LOGGIN_CRITICAL_MESSAGE\n'
