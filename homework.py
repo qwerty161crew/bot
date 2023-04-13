@@ -45,7 +45,8 @@ RESPONSE_ERROR = ('Произошла ошибка при запросе к ЯП
                   'Response вернул {response}')
 RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
                         'Учетные данные не были предоставлены')
-LOGGIN_ERROR = 'Сбой в работе программы: {error}. Параметры броска: {response}, {timestamp}'
+LOGGIN_ERROR = ('Сбой в работе программы: {error}. Параметры броска:'
+                '{response}, {timestamp}')
 
 
 HOMEWORK_VERDICTS = {
