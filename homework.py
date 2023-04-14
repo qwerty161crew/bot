@@ -15,6 +15,12 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
+TOKEN_NAMES_GET_VALUES = (
+    ('TELEGRAM_TOKEN', lambda: TELEGRAM_TOKEN),
+    ('TELEGRAM_CHAT_ID', lambda: TELEGRAM_CHAT_ID),
+    ('PRACTICUM_TOKEN', lambda: PRACTICUM_TOKEN),
+)
+
 RETRY_PERIOD = 600
 
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -58,12 +64,8 @@ HOMEWORK_VERDICTS = {
 def check_tokens():
     """Проверка наличия токенов."""
     not_found_token_names = []
-    for token_name, token in (
-        ('TELEGRAM_TOKEN', TELEGRAM_TOKEN),
-        ('TELEGRAM_CHAT_ID', TELEGRAM_CHAT_ID),
-        ('PRACTICUM_TOKEN', PRACTICUM_TOKEN),
-    ):
-        if token is None:
+    for token_name, get_token_function in TOKEN_NAMES_GET_VALUES:
+        if get_token_function() is None:
             not_found_token_names.append(token_name)
     if len(not_found_token_names) > 0:
         logging.critical(
