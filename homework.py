@@ -51,6 +51,8 @@ RESPONSE_KEY_ERROR = ('Запрос на сайт на сайт вернул о�
                       'Параметры запроса: {headers}, {payload}, {endpoint}')
 
 
+stream_handler = logging.StreamHandler()
+
 TOKEN_NAMES_GET_VALUES = (
     ('TELEGRAM_TOKEN', lambda: TELEGRAM_TOKEN),
     ('TELEGRAM_CHAT_ID', lambda: TELEGRAM_CHAT_ID),
@@ -128,7 +130,6 @@ def check_response(response):
 
 def parse_status(homework):
     """извлекает из информации статус о домашней работе."""
-    print(type(homework))
     if 'homework_name' not in homework:
         raise KeyError(KEY_ERROR_HOMEWORK_NAME)
     homework_name = homework['homework_name']
@@ -149,23 +150,20 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     response = get_api_answer(timestamp)
-    try:
-        while True:
-            if check_response(response):
-                raise ValueError('Возвращается пустой запрос')
-            timestamp = response.get('current_date')
-            try:
-                message = parse_status(response['homeworks'][0])
-                send_message(bot, message)
+    while True:
+        if check_response(response):
+            raise ValueError('Возвращается пустой запрос')
+        timestamp = response.get('current_date')
+        try:
+            message = parse_status(response['homeworks'][0])
+            send_message(bot, message)
 
-            except Exception as error:
-                send_message(bot, MESSAGE_ERROR.format(error=error))
-                logging.critical(LOGGIN_ERROR.format(
-                    error=error, response=response,
-                    timestamp=timestamp))
-            time.sleep(RETRY_PERIOD)
-    except ResponseError as error:
-        raise (f'Данные из запроса не прошли проверку. Ошибка: {error}')
+        except ResponseError as error:
+            send_message(bot, MESSAGE_ERROR.format(error=error))
+            logging.critical(LOGGIN_ERROR.format(
+                error=error, response=response,
+                timestamp=timestamp))
+        time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
@@ -174,4 +172,4 @@ if __name__ == '__main__':
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
         filename=__file__ + '.log',
-        handlers=['fileHandler', 'consoleHandler'])
+        handlers=stream_handler)
