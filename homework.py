@@ -36,8 +36,8 @@ LOGGIN_CRITICAL_MESSAGE = "Отсутсвует обязательная пер�
 KEY_STATUS = 'Отсутствует ключ status в ответе API'
 PARSE_STATUS = 'Изменился статус проверки работы "{homework_name}"\n{verdicts}'
 TOKEN_ERROR = 'Отсутствуют одна или несколько переменных окружения'
-HOMEWOR_TYPE_ERROR = ('API запрос ожидает списка,'
-                      'а получает: {response}')
+HOMEWORK_TYPE_ERROR = ('API запрос ожидает списка,'
+                       'а получает: {response}')
 KEY_ERROR_HOMEWORK_NAME = ('Отсутствует ключ `homework_name` в ответе API.'
                            'Функция - parse_status')
 RESPONSE_ERROR = ('Произошла ошибка при запросе к ЯП,'
@@ -47,6 +47,15 @@ RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
                         'Учетные данные не были предоставлены')
 LOGGIN_ERROR = ('Сбой в работе программы: {error}. Параметры броска:'
                 '{response}, {timestamp}')
+RESPONSE_KEY_ERROR = ('Запрос на сайт на сайт вернул ошибку: {key}.'
+                      'Параметры запроса: {headers}, {payload}, {endpoint}')
+
+
+TOKEN_NAMES_GET_VALUES = (
+    ('TELEGRAM_TOKEN', lambda: TELEGRAM_TOKEN),
+    ('TELEGRAM_CHAT_ID', lambda: TELEGRAM_CHAT_ID),
+    ('PRACTICUM_TOKEN', lambda: PRACTICUM_TOKEN),
+)
 
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
@@ -58,12 +67,8 @@ HOMEWORK_VERDICTS = {
 def check_tokens():
     """Проверка наличия токенов."""
     not_found_token_names = []
-    for token_name, token in (
-        ('TELEGRAM_TOKEN', TELEGRAM_TOKEN),
-        ('TELEGRAM_CHAT_ID', TELEGRAM_CHAT_ID),
-        ('PRACTICUM_TOKEN', PRACTICUM_TOKEN),
-    ):
-        if token is None:
+    for token_name, get_token_function in TOKEN_NAMES_GET_VALUES:
+        if get_token_function() is None:
             not_found_token_names.append(token_name)
     if len(not_found_token_names) > 0:
         logging.critical(
@@ -96,16 +101,19 @@ def get_api_answer(timestamp):
                                                headers=HEADERS,
                                                params=payload,
                                                endpoint=ENDPOINT))
-    if "UnknowError" in response.json():
-        raise ResponseError(
-            RESPONSE_ERROR.format(response=response['code']))
-    if "Not_authenticated" in response.json():
-        raise ResponseError(RESPONSE_ERROR_TOKEN)
+    json_answer = response.json()
+    for key in json_answer:
+        if 'code' in key or 'error' in key:
+            raise ValueError(RESPONSE_KEY_ERROR.format(
+                key=key, headers=HEADERS, params=payload,
+                endpoint=ENDPOINT))
     if response.status_code == http.HTTPStatus.OK:
-        return response.json()
-    raise ConnectionError(API_ERROR_MESSAGE.format(
-        response=response.status_code, headers=HEADERS, endpoint=ENDPOINT,
-        params=payload))
+        return json_answer
+    else:
+        raise Exception(API_ERROR_MESSAGE.format(response=response.status_code,
+                                                 headers=HEADERS,
+                                                 params=payload,
+                                                 endpoint=ENDPOINT))
 
 
 def check_response(response):
@@ -115,7 +123,7 @@ def check_response(response):
     if 'homeworks' not in response.keys():
         raise KeyError(KEY_ERROR)
     if not isinstance(response['homeworks'], list):
-        raise TypeError(HOMEWOR_TYPE_ERROR.format(
+        raise TypeError(HOMEWORK_TYPE_ERROR.format(
             response=type(response)))
 
 
