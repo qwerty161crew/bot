@@ -75,8 +75,7 @@ def check_tokens():
             f'LOGGIN_CRITICAL_MESSAGE\n'
             f'Отсутсвуют токены: {not_found_token_names!r}'
         )
-        return False
-    return True
+        sys.exit('Some tokens are invalid, stop the program.')
 
 
 def send_message(bot, message):
@@ -146,8 +145,7 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    if not check_tokens():
-        sys.exit('Some tokens are invalid, stop the program.')
+    check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     response = get_api_answer(timestamp)
