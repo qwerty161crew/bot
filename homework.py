@@ -150,20 +150,23 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     response = get_api_answer(timestamp)
-    while True:
-        if check_response(response):
-            raise ValueError('Возвращается пустой запрос')
-        timestamp = response.get('current_date')
-        try:
-            message = parse_status(response['homeworks'][0])
-            send_message(bot, message)
+    try:
+        while True:
+            if check_response(response):
+                raise ValueError('Возвращается пустой запрос')
+            timestamp = response.get('current_date')
+            try:
+                message = parse_status(response['homeworks'][0])
+                send_message(bot, message)
 
-        except ResponseError as error:
-            send_message(bot, MESSAGE_ERROR.format(error=error))
-            logging.critical(LOGGIN_ERROR.format(
-                error=error, response=response,
-                timestamp=timestamp))
-        time.sleep(RETRY_PERIOD)
+            except Exception as error:
+                send_message(bot, MESSAGE_ERROR.format(error=error))
+                logging.critical(LOGGIN_ERROR.format(
+                    error=error, response=response,
+                    timestamp=timestamp))
+            time.sleep(RETRY_PERIOD)
+    except ResponseError as error:
+        raise (f'Данные из запроса не прошли проверку. Ошибка: {error}')
 
 
 if __name__ == '__main__':
