@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 import time
 import http
 
@@ -8,7 +7,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import ResponseError
+from exceptions import TokenError
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -25,7 +24,8 @@ API_ERROR = ('API сервиса ЯП недоступен: {error}.'
              'Параметры броска: {headers}, {params}, {endpoint}')
 KEY_ERROR = 'Отсутствует ключ `homework_name` в ответе API'
 VALUE_ERROR = 'В ответе API недопустимый статус работы: {status}'
-MESSAGE_ERROR = 'Сбой в работе программы: {error}'
+MESSAGE_ERROR = ('Сбой в работе программы: {error}. Параметры броска:'
+                 '{response}, {timestamp}')
 DEBAG_MESSAGE = "'{message}' - сообщение было отправлено пользователю"
 ERROR_MESSAGE = '{error}. {message} - Сообщение было отправлено пользователю'
 API_ERROR_MESSAGE = ('Статус запроса отличный от 200.'
@@ -45,13 +45,9 @@ RESPONSE_ERROR = ('Произошла ошибка при запросе к ЯП
                   'Response вернул {response}')
 RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
                         'Учетные данные не были предоставлены')
-LOGGIN_ERROR = ('Сбой в работе программы: {error}. Параметры броска:'
-                '{response}, {timestamp}')
 RESPONSE_KEY_ERROR = ('Запрос на сайт на сайт вернул ошибку: {key}.'
                       'Параметры запроса: {headers}, {payload}, {endpoint}')
 
-
-stream_handler = logging.StreamHandler()
 
 TOKEN_NAMES_GET_VALUES = (
     ('TELEGRAM_TOKEN', lambda: TELEGRAM_TOKEN),
@@ -68,16 +64,15 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка наличия токенов."""
-    not_found_token_names = []
-    for token_name, get_token_function in TOKEN_NAMES_GET_VALUES:
-        if get_token_function() is None:
-            not_found_token_names.append(token_name)
-    if len(not_found_token_names) > 0:
+    not_found_token_names = [token_name for token_name, get_token_function
+                             in TOKEN_NAMES_GET_VALUES
+                             if get_token_function() is None]
+    if not_found_token_names:
         logging.critical(
             f'LOGGIN_CRITICAL_MESSAGE\n'
             f'Отсутсвуют токены: {not_found_token_names!r}'
         )
-        sys.exit('Some tokens are invalid, stop the program.')
+        raise TokenError('Отсутсвует обязательная переменная окружения')
 
 
 def send_message(bot, message):
@@ -103,18 +98,18 @@ def get_api_answer(timestamp):
                                                params=payload,
                                                endpoint=ENDPOINT))
     json_answer = response.json()
-    for key in json_answer:
-        if 'code' in key or 'error' in key:
+    invalid_keys = ('error', 'code')
+    for key in invalid_keys:
+        if json_answer.get(key):
             raise ValueError(RESPONSE_KEY_ERROR.format(
                 key=key, headers=HEADERS, params=payload,
                 endpoint=ENDPOINT))
     if response.status_code == http.HTTPStatus.OK:
         return json_answer
-    else:
-        raise Exception(API_ERROR_MESSAGE.format(response=response.status_code,
-                                                 headers=HEADERS,
-                                                 params=payload,
-                                                 endpoint=ENDPOINT))
+    raise Exception(API_ERROR_MESSAGE.format(response=response.status_code,
+                                             headers=HEADERS,
+                                             params=payload,
+                                             endpoint=ENDPOINT))
 
 
 def check_response(response):
@@ -133,11 +128,12 @@ def parse_status(homework):
     if 'homework_name' not in homework:
         raise KeyError(KEY_ERROR_HOMEWORK_NAME)
     homework_name = homework['homework_name']
-    if 'status' not in homework:
+    status = homework.get('status')
+    if status is None:
         raise KeyError(KEY_STATUS)
-    if homework['status'] not in HOMEWORK_VERDICTS:
-        raise ValueError(VALUE_ERROR.format(status=homework['status']))
-    verdict = HOMEWORK_VERDICTS[homework["status"]]
+    if status not in HOMEWORK_VERDICTS:
+        raise ValueError(VALUE_ERROR.format(status=status))
+    verdict = HOMEWORK_VERDICTS[status]
     return (PARSE_STATUS.format(
         homework_name=homework_name,
         verdicts=verdict)
@@ -146,27 +142,27 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
+    last_error = None
     check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
-    response = get_api_answer(timestamp)
-    try:
-        while True:
-            if check_response(response):
-                raise ValueError('Возвращается пустой запрос')
-            timestamp = response.get('current_date')
-            try:
-                message = parse_status(response['homeworks'][0])
-                send_message(bot, message)
-
-            except Exception as error:
-                send_message(bot, MESSAGE_ERROR.format(error=error))
-                logging.critical(LOGGIN_ERROR.format(
+    while True:
+        response = get_api_answer(timestamp)
+        try:
+            check_response(response)
+            message = parse_status(response['homeworks'][0])
+            send_message(bot, message)
+        except Exception as error:
+            logging.debug(MESSAGE_ERROR.format(
+                error=error, response=response,
+                timestamp=timestamp))
+            if error != last_error:
+                last_error = error
+                send_message(bot, MESSAGE_ERROR.format(
                     error=error, response=response,
                     timestamp=timestamp))
-            time.sleep(RETRY_PERIOD)
-    except ResponseError as error:
-        raise (f'Данные из запроса не прошли проверку. Ошибка: {error}')
+        timestamp = response.get('current_date') or timestamp
+        time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
@@ -174,5 +170,5 @@ if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
-        filename=__file__ + '.log',
-        handlers=stream_handler)
+        handlers=[logging.StreamHandler(),
+                  logging.FileHandler(filename=__file__ + '.log',)])
