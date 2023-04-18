@@ -89,7 +89,7 @@ def send_message(bot, message):
         return True
     except telegram.error.TelegramError as error:
         logging.exception(ERROR_MESSAGE.format(error=error, message=message))
-        return False
+        return True
 
 
 def get_api_answer(timestamp):
@@ -154,6 +154,7 @@ def main():
     while True:
         try:
             response = get_api_answer(timestamp)
+            print(response)
             check_response(response)
             message = parse_status(response['homeworks'][0])
             if send_message(bot, message):
@@ -163,7 +164,7 @@ def main():
                 error=error,
                 timestamp=timestamp))
             if debug_message != last_error:
-                if send_message(bot, debug_message) is False:
+                if send_message(bot, debug_message):
                     last_error = debug_message
         time.sleep(RETRY_PERIOD)
 
