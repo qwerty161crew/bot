@@ -7,7 +7,7 @@ import requests
 import telegram
 from dotenv import load_dotenv
 
-from exceptions import TokenError
+from exceptions import TokenError, ResponseError
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -25,7 +25,7 @@ API_ERROR = ('API сервиса ЯП недоступен: {error}.'
 KEY_ERROR = 'Отсутствует ключ `homework_name` в ответе API'
 VALUE_ERROR = 'В ответе API недопустимый статус работы: {status}'
 MESSAGE_ERROR = ('Сбой в работе программы: {error}. Параметры броска:'
-                 '{response}, {timestamp}')
+                 ' {timestamp}')
 DEBAG_MESSAGE = "'{message}' - сообщение было отправлено пользователю"
 ERROR_MESSAGE = '{error}. {message} - Сообщение было отправлено пользователю'
 API_ERROR_MESSAGE = ('Статус запроса отличный от 200.'
@@ -46,7 +46,10 @@ RESPONSE_ERROR = ('Произошла ошибка при запросе к ЯП
 RESPONSE_ERROR_TOKEN = ('Токен не прошел аунтификацию.'
                         'Учетные данные не были предоставлены')
 RESPONSE_KEY_ERROR = ('Запрос на сайт на сайт вернул ошибку: {key}.'
-                      'Параметры запроса: {headers}, {payload}, {endpoint}')
+                      'Параметры запроса: {headers}, {payload}, {endpoint},'
+                      '{response}')
+LOGGING_CRITICAL = ('LOGGIN_CRITICAL_MESSAGE\n'
+                    'Отсутсвуют токены: {not_found_token_names}')
 
 
 TOKEN_NAMES_GET_VALUES = (
@@ -68,9 +71,9 @@ def check_tokens():
                              in TOKEN_NAMES_GET_VALUES
                              if get_token_function() is None]
     if not_found_token_names:
-        logging.critical(
-            f'LOGGIN_CRITICAL_MESSAGE\n'
-            f'Отсутсвуют токены: {not_found_token_names!r}'
+        logging.critical(LOGGING_CRITICAL.format(
+            not_found_token_names=not_found_token_names
+        )
         )
         raise TokenError('Отсутсвует обязательная переменная окружения')
 
@@ -83,8 +86,10 @@ def send_message(bot, message):
             text=message
         )
         logging.debug(DEBAG_MESSAGE.format(message=message))
+        return True
     except telegram.error.TelegramError as error:
         logging.exception(ERROR_MESSAGE.format(error=error, message=message))
+        return False
 
 
 def get_api_answer(timestamp):
@@ -98,18 +103,18 @@ def get_api_answer(timestamp):
                                                params=payload,
                                                endpoint=ENDPOINT))
     json_answer = response.json()
-    invalid_keys = ('error', 'code')
+    invalid_keys = ['error', 'code']
     for key in invalid_keys:
-        if json_answer.get(key):
+        if json_answer in invalid_keys:
             raise ValueError(RESPONSE_KEY_ERROR.format(
                 key=key, headers=HEADERS, params=payload,
-                endpoint=ENDPOINT))
+                endpoint=ENDPOINT, response=response[key]))
     if response.status_code == http.HTTPStatus.OK:
         return json_answer
-    raise Exception(API_ERROR_MESSAGE.format(response=response.status_code,
-                                             headers=HEADERS,
-                                             params=payload,
-                                             endpoint=ENDPOINT))
+    raise ResponseError(API_ERROR_MESSAGE.format(response=response.status_code,
+                                                 headers=HEADERS,
+                                                 params=payload,
+                                                 endpoint=ENDPOINT))
 
 
 def check_response(response):
@@ -120,7 +125,7 @@ def check_response(response):
         raise KeyError(KEY_ERROR)
     if not isinstance(response['homeworks'], list):
         raise TypeError(HOMEWORK_TYPE_ERROR.format(
-            response=type(response)))
+            response=type(response['homeworks'])))
 
 
 def parse_status(homework):
@@ -145,30 +150,29 @@ def main():
     last_error = None
     check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = 0
+    timestamp = int(time.time())
     while True:
-        response = get_api_answer(timestamp)
         try:
+            response = get_api_answer(timestamp)
+            print(response)
             check_response(response)
             message = parse_status(response['homeworks'][0])
             send_message(bot, message)
+            timestamp = response.get('current_date').get('date_updated')
         except Exception as error:
-            logging.debug(MESSAGE_ERROR.format(
-                error=error, response=response,
+            debug_message = logging.debug(MESSAGE_ERROR.format(
+                error=error,
                 timestamp=timestamp))
             if error != last_error:
                 last_error = error
-                send_message(bot, MESSAGE_ERROR.format(
-                    error=error, response=response,
-                    timestamp=timestamp))
-        timestamp = response.get('current_date') or timestamp
+                send_message(bot, debug_message)
         time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
-    main()
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
         handlers=[logging.StreamHandler(),
                   logging.FileHandler(filename=__file__ + '.log',)])
+    main()
