@@ -154,19 +154,17 @@ def main():
     while True:
         try:
             response = get_api_answer(timestamp)
-            print(response)
             check_response(response)
             message = parse_status(response['homeworks'][0])
-            print(message)
-            send_message(bot, message)
-            timestamp = response.get('current_date', timestamp)
+            if send_message(bot, message):
+                timestamp = response.get('current_date', timestamp)
         except Exception as error:
             debug_message = logging.debug(MESSAGE_ERROR.format(
                 error=error,
                 timestamp=timestamp))
             if debug_message != last_error:
-                last_error = debug_message
-                send_message(bot, debug_message)
+                if send_message(bot, debug_message) is False:
+                    last_error = debug_message
         time.sleep(RETRY_PERIOD)
 
 
